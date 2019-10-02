@@ -1,0 +1,71 @@
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
+
+import tensorflow as tf
+import time
+
+training_epochs = 15
+batch_size = 100
+keep_prob = tf.placeholder(tf.float32)
+
+X=tf.placeholder(tf.float32, [None, 784])
+Y=tf.placeholder(tf.float32, [None, 10])
+X_img=tf.reshape(X, [-1, 28, 28, 1])
+
+# Convolution Layer 1
+W1 = tf.Variable(tf.random_normal([3,3,1,32], stddev=0.01))
+CL1 = tf.nn.conv2d(X_img, W1, strides=[1,1,1,1], padding='SAME')
+CL1 = tf.nn.relu(CL1)
+# pooling Layer 1
+PL1 = tf.nn.max_pool(CL1, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
+PL1 = tf.nn.dropout(PL1, keep_prob=keep_prob)
+# Convolution Layer 2
+W2 = tf.Variable(tf.random_normal([3,3,32,64], stddev=0.01))
+CL2 = tf.nn.conv2d(PL1, W2, strides=[1,1,1,1], padding='SAME')
+CL2 = tf.nn.relu(CL2)
+# pooling Layer 2
+PL2 = tf.nn.max_pool(CL2, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
+PL2 = tf.nn.dropout(PL2, keep_prob=keep_prob)
+# Convolution Layer 3
+W3 = tf.Variable(tf.random_normal([3,3,64, 128], stddev=0.01))
+CL3 = tf.nn.conv2d(PL2, W3, strides=[1,1,1,1], padding='SAME')
+CL3 = tf.nn.relu(CL3)
+# pooling Layer 2
+PL3 = tf.nn.max_pool(CL3, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
+PL3 = tf.nn.dropout(PL3, keep_prob=keep_prob)
+
+# Fully Connected (FC) Layer
+L_flat = tf.reshape(PL3, [-1, 4*4*128])
+W4 = tf.Variable(tf.random_normal([4*4*128,10], stddev=0.01))
+b4 = tf.Variable(tf.random_normal([10]))
+
+# Model, Cost, Train
+mode_LC = tf.matmul(L_flat, W4) + b4
+model = tf.nn.softmax(mode_LC)
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=mode_LC, labels=Y))
+train = tf.train.AdamOptimizer(0.001).minimize(cost)
+
+# Accuracy
+accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(model, 1), tf.argmax(Y, 1)), tf.float32))
+
+# Session
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    # Training
+    t1 = time.time()
+    for epoch in range(training_epochs):
+        total_batch = int(mnist.train.num_examples / batch_size)
+        for i in range (total_batch):
+            train_images, train_labes = mnist.train.next_batch(batch_size)
+            c, _ = sess.run([cost, train], feed_dict={X:train_images,  Y: train_labes, keep_prob: 0.7})
+            if i % 10 == 0:
+                print('epoch :', epoch, ', batch number :', i)
+    t2 = time.time()
+    # Testing
+    print('Training Time (Seconds) :', t2-t1)
+    #print('Accuracy :', sess.run(accuracy, feed_dict={X: mnist.test.images, Y: mnist.test.labels}))
+
+    model_path = "./deep_tmp/model.saved"  # 모델을 저장할 경로와 파일 이름
+    saver = tf.train.Saver()
+    save_path = saver.save(sess, model_path)
+    print("Model saved in file: %s" % save_path)
